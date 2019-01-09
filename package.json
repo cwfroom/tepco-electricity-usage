@@ -1,0 +1,24 @@
+{
+  "name": "tepco-electricity-usage",
+  "version": "1.0.0",
+  "description": "Obtain daily electricity usage data from Tepco(東京電力) and send a notification",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js dev",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cwfroom/tepco-electricity-usage.git"
+  },
+  "author": "Wenfei Cao",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/cwfroom/tepco-electricity-usage/issues"
+  },
+  "homepage": "https://github.com/cwfroom/tepco-electricity-usage#readme",
+  "dependencies": {
+    "puppeteer": "^1.11.0"
+  }
+}
