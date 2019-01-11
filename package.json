@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/cwfroom/tepco-electricity-usage#readme",
   "dependencies": {
+    "csv-parse": "^4.3.0",
     "puppeteer": "^1.11.0"
   }
 }
