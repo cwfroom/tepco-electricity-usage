@@ -122,6 +122,8 @@ async function getUsage(){
             if (error){
                 console.log("Post error " + error);
                 return;
+            }else{
+                process.exit();
             }
         });
     });
