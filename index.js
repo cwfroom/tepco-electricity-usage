@@ -1,11 +1,16 @@
 'use strict'
 const fs = require('fs');
+const util = require('util');
+const request = require('request');
+const chromeLauncher = require('chrome-launcher');
 const puppeteer = require('puppeteer');
 const csvParse = require('csv-parse');
+
 const loginURL = "https://www.kurashi.tepco.co.jp/pf/ja/pc/mypage/home/index.page?";
 
 let devMode = false;
 let page = null;
+let appdata = null;
 
 init().then(loadCredentials);
 
@@ -13,12 +18,21 @@ async function init() {
     if (process.argv[2] === "dev"){
         devMode = true;
     }
-    let browser = null;
-    if (devMode){
-        browser = await puppeteer.launch({headless:false});
-    }else{
-        browser = await puppeteer.launch();
+    
+    let launchOptions = {
+        logLevel: 'info',
+        output: 'json'
     }
+    
+    if (!devMode){
+        launchOptions.chromeFlags = ['--headless'];
+    }
+    
+    const chrome = await chromeLauncher.launch(launchOptions);
+    const debugPort = chrome.port;
+    const resp = await util.promisify(request)(`http://localhost:${debugPort}/json/version`);
+    const {webSocketDebuggerUrl} = JSON.parse(resp.body);
+    const browser = await puppeteer.connect({browserWSEndpoint: webSocketDebuggerUrl});
     page = await browser.newPage();
     await page.goto(loginURL,{waituntil:'domcontentloaded'});
 }
@@ -30,17 +44,17 @@ function loadCredentials(){
             return;
         }
         try{
-            const credentials = JSON.parse(content);
-            login(credentials).then(getUsage);
+            appdata = JSON.parse(content);
+            login().then(getUsage);
         }catch (err){
             console.log("Failed to parse appdata.json");
         }
     });
 }
 
-async function login(credentials){
-    const username = credentials.username;
-    const password = credentials.password;
+async function login(){
+    const username = appdata.username;
+    const password = appdata.password;
     
     const usernameInput = await page.$('div.p-logout__panel input[name="ACCOUNTUID"]');
     const passwordInput = await page.$('div.p-logout__panel input[name="PASSWORD"]');
@@ -60,7 +74,7 @@ async function getUsage(){
     const year = date.getFullYear();
     const month = date.getMonth()+1;
     const downloadUrl = 'https://www.kurashi.tepco.co.jp/pf/ja/pc/mypage/learn/comparison.page?ReqID=CsvDL&year='+year+'&month='+month;
-    console.log(downloadUrl);
+    console.log("Downloading " + downloadUrl);
     let downloadedContent = null;
     try{
         downloadedContent = await page.evaluate(async downloadUrl => {
@@ -69,6 +83,7 @@ async function getUsage(){
           }, downloadUrl);
     }catch(err){
         console.log("Failed to obtain csv data");
+        return;
     }
 
     //Original data is in SHIFT-JIS, but let't not bother with encoding
@@ -82,6 +97,8 @@ async function getUsage(){
 
         let dateKey = null
         let usageKey = null;
+        let message = '';
+        let sum = 0;
         for (let i in records){
             const item = records[i];
             if (dateKey == null){
@@ -90,7 +107,23 @@ async function getUsage(){
                 usageKey = keys[8];
             }
             console.log(item[dateKey] + " " + item[usageKey]);
+            message += item[dateKey] + " " + item[usageKey] + "\n";
+            sum += parseFloat(item[usageKey]);
         }
+        console.log(sum);
+        message += sum.toFixed(2);
+        request.post({
+            uri:appdata.slackhook,
+            headers:{
+                "content-type": "application/json"
+            },
+            body: JSON.stringify({ "text": message })
+        },(error,response,body) => {
+            if (error){
+                console.log("Post error " + error);
+                return;
+            }
+        });
     });
     
 }
