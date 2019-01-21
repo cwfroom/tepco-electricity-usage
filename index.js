@@ -1,5 +1,6 @@
 'use strict'
 const fs = require('fs');
+const path = require('path');
 const util = require('util');
 const request = require('request');
 const chromeLauncher = require('chrome-launcher');
@@ -9,6 +10,7 @@ const csvParse = require('csv-parse');
 const loginURL = "https://www.kurashi.tepco.co.jp/pf/ja/pc/mypage/home/index.page?";
 
 let devMode = false;
+let chrome = null;
 let page = null;
 let appdata = null;
 
@@ -28,7 +30,7 @@ async function init() {
         launchOptions.chromeFlags = ['--headless'];
     }
     
-    const chrome = await chromeLauncher.launch(launchOptions);
+    chrome = await chromeLauncher.launch(launchOptions);
     const debugPort = chrome.port;
     const resp = await util.promisify(request)(`http://localhost:${debugPort}/json/version`);
     const {webSocketDebuggerUrl} = JSON.parse(resp.body);
@@ -38,7 +40,7 @@ async function init() {
 }
 
 function loadCredentials(){
-    fs.readFile('appdata.json','utf8', (err,content) => {
+    fs.readFile(path.resolve(__dirname,'appdata.json'),'utf8', (err,content) => {
         if (err) {
             console.log("Failed to read appdata.json");
             return;
@@ -123,6 +125,7 @@ async function getUsage(){
                 console.log("Post error " + error);
                 return;
             }else{
+                chrome.kill();
                 process.exit();
             }
         });
